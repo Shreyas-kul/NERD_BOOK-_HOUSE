@@ -1,0 +1,338 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+
+using namespace std;
+
+class Book {
+protected:
+    string title;
+    string author;
+    string ISBN;
+    int quantity;
+
+public:
+    Book(string title, string author, string ISBN, int quantity)
+        : title(title), author(author), ISBN(ISBN), quantity(quantity) {}
+
+    virtual void display() const {
+        cout << "Title: " << title << "\nAuthor: " << author
+             << "\nISBN: " << ISBN << "\nQuantity: " << quantity << endl;
+    }
+
+    string getTitle() const {  
+        return title;
+    }
+
+    string getAuthor() const {  
+        return author;
+    }
+
+    string getISBN() const {
+        return ISBN;
+    }
+
+    int getQuantity() const {
+        return quantity;
+    }
+
+    void setQuantity(int newQuantity) {
+        quantity = newQuantity;
+    }
+
+    void updateQuantity(int change) {
+        quantity += change;
+    }
+
+    void setTitle(const string& newTitle) {
+        title = newTitle;
+    }
+
+    void setAuthor(const string& newAuthor) {
+        author = newAuthor;
+    }
+
+    virtual string getType() const {
+        return "Book";
+    }
+
+    virtual string getFileFormat() const {
+        return "";
+    }
+
+    virtual double getFileSize() const {
+        return 0.0;
+    }
+
+    virtual ~Book() {}
+};
+
+class EBook : public Book {
+private:
+    string fileFormat;
+    double fileSize; // in MB
+
+public:
+    EBook(string title, string author, string ISBN, int quantity, string fileFormat, double fileSize)
+        : Book(title, author, ISBN, quantity), fileFormat(fileFormat), fileSize(fileSize) {}
+
+    void display() const override {
+        Book::display();
+        cout << "File Format: " << fileFormat << "\nFile Size: " << fileSize << " MB" << endl;
+    }
+
+    string getType() const override {
+        return "EBook";
+    }
+
+    string getFileFormat() const override {
+        return fileFormat;
+    }
+
+    double getFileSize() const override {
+        return fileSize;
+    }
+};
+
+class Library {
+private:
+    vector<Book*> books;
+
+    void saveToFile() const {
+        ofstream file("library_data.txt");
+        for (auto& book : books) {
+            file << book->getType() << "," << book->getISBN() << "," << book->getQuantity() << ","
+                 << book->getTitle() << "," << book->getAuthor();
+
+            if (book->getType() == "EBook") {
+                file << "," << book->getFileFormat() << "," << book->getFileSize();
+            }
+
+            file << endl;
+        }
+        file.close();
+    }
+
+    void loadFromFile() {
+        ifstream file("library_data.txt");
+        string type, title, author, ISBN, fileFormat;
+        int quantity;
+        double fileSize;
+
+        while (file >> type >> ISBN >> quantity >> title >> author) {
+            if (type == "EBook") {
+                file >> fileFormat >> fileSize;
+                books.push_back(new EBook(title, author, ISBN, quantity, fileFormat, fileSize));
+            } else {
+                books.push_back(new Book(title, author, ISBN, quantity));
+            }
+        }
+        file.close();
+    }
+
+public:
+    Library() {
+        loadFromFile();
+    }
+
+    void addBook(Book* book) {
+        books.push_back(book);
+        saveToFile();
+    }
+
+    void deleteBook(const string& isbn) {
+        for (auto it = books.begin(); it != books.end(); ++it) {
+            if ((*it)->getISBN() == isbn) {
+                delete *it;
+                books.erase(it);
+                saveToFile();
+                return;
+            }
+        }
+        cout << "Book not found!" << endl;
+    }
+
+    void searchBook(const string& isbn) const {
+        for (auto& book : books) {
+            if (book->getISBN() == isbn) {
+                book->display();
+                return;
+            }
+        }
+        cout << "Book not found!" << endl;
+    }
+
+    void updateBookDetails(const string& isbn) {
+        for (auto& book : books) {
+            if (book->getISBN() == isbn) {
+                string newTitle, newAuthor;
+                int newQuantity;
+                cout << "Enter new title: ";
+                cin.ignore();
+                getline(cin, newTitle);
+                cout << "Enter new author: ";
+                getline(cin, newAuthor);
+                cout << "Enter new quantity: ";
+                cin >> newQuantity;
+
+                book->setTitle(newTitle);
+                book->setAuthor(newAuthor);
+                book->setQuantity(newQuantity);
+                saveToFile();
+                return;
+            }
+        }
+        cout << "Book not found!" << endl;
+    }
+
+    void checkoutBook(const string& isbn) {
+        for (auto& book : books) {
+            if (book->getISBN() == isbn) {
+                if (book->getQuantity() > 0) {
+                    book->updateQuantity(-1);
+                    cout << "Book checked out successfully!" << endl;
+                    saveToFile();
+                } else {
+                    cout << "Sorry, the book is out of stock!" << endl;
+                }
+                return;
+            }
+        }
+        cout << "Book not found!" << endl;
+    }
+
+    void returnBook(const string& isbn) {
+        for (auto& book : books) {
+            if (book->getISBN() == isbn) {
+                book->updateQuantity(1);
+                cout << "Book returned successfully!" << endl;
+                saveToFile();
+                return;
+            }
+        }
+        cout << "Book not found!" << endl;
+    }
+
+    void displayOutOfStockBooks() const {
+        cout << "Out of Stock Books:\n";
+        for (auto& book : books) {
+            if (book->getQuantity() == 0) {
+                book->display();
+                cout << "--------------------" << endl;
+            }
+        }
+    }
+
+    void displayAllBooks() const {
+        for (auto& book : books) {
+            book->display();
+            cout << "--------------------" << endl;
+        }
+    }
+
+    ~Library() {
+        saveToFile();
+        for (auto& book : books) {
+            delete book;
+        }
+    }
+};
+
+int main() {
+    cout << "WELCOME TO NERD BOOK HOUSE" << endl;
+    Library library;
+
+    int choice;
+    do {
+        cout << "1. Add Book\n";
+        cout << "2. Delete Book\n";
+        cout << "3. Search Book\n";
+        cout << "4. Update Book Details\n";
+        cout << "5. Check Out Book\n";
+        cout << "6. Return Book\n";
+        cout << "7. Display Out of Stock Books\n";
+        cout << "8. Display All Books\n";
+        cout << "9. Exit\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+
+        switch (choice) {
+        case 1: {
+            string title, author, ISBN, format;
+            int quantity;
+            double size;
+            cout << "Enter title: ";
+            cin.ignore();
+            getline(cin, title);
+            cout << "Enter author: ";
+            getline(cin, author);
+            cout << "Enter ISBN: ";
+            getline(cin, ISBN);
+            cout << "Enter quantity: ";
+            cin >> quantity;
+            cout << "Is it an eBook? (y/n): ";
+            char ebookChoice;
+            cin >> ebookChoice;
+            if (ebookChoice == 'y' || ebookChoice == 'Y') {
+                cout << "Enter file format: ";
+                cin >> format;
+                cout << "Enter file size (in MB): ";
+                cin >> size;
+                library.addBook(new EBook(title, author, ISBN, quantity, format, size));
+            } else {
+                library.addBook(new Book(title, author, ISBN, quantity));
+            }
+            break;
+        }
+        case 2: {
+            string isbn;
+            cout << "Enter ISBN of the book to delete: ";
+            cin >> isbn;
+            library.deleteBook(isbn);
+            break;
+        }
+        case 3: {
+            string isbn;
+            cout << "Enter ISBN of the book to search: ";
+            cin >> isbn;
+            library.searchBook(isbn);
+            break;
+        }
+        case 4: {
+            string isbn;
+            cout << "Enter ISBN of the book to update: ";
+            cin >> isbn;
+            library.updateBookDetails(isbn);
+            break;
+        }
+        case 5: {
+            string isbn;
+            cout << "Enter ISBN of the book to check out: ";
+            cin >> isbn;
+            library.checkoutBook(isbn);
+            break;
+        }
+        case 6: {
+            string isbn;
+            cout << "Enter ISBN of the book to return: ";
+            cin >> isbn;
+            library.returnBook(isbn);
+            break;
+        }
+        case 7:
+            library.displayOutOfStockBooks();
+            break;
+        case 8:
+            library.displayAllBooks();
+            break;
+        case 9:
+            cout << "Exiting...\n";
+            break;
+        default:
+            cout << "Invalid choice! Please try again.\n";
+        }
+    } while (choice != 9);
+
+    return 0;
+}
